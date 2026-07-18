@@ -1,10 +1,10 @@
-// REPLACE with your Web App URL after deployment
+// REPLACE with your deployed Web App URL
 const GAS_URL = 'https://script.google.com/macros/s/AKfycbxc_-rmsBGEEYidMuLFSEiccxkNwSTUWtKv7tsxMoVEDEhoDCFs8VR9WL20oxbm7kYC/exec'; 
 
 const video = document.getElementById('video');
 const status = document.getElementById('status');
 
-// Load models
+// Load models from local /models folder
 Promise.all([
     faceapi.nets.tinyFaceDetector.loadFromUri('/models'),
     faceapi.nets.faceLandmark68Net.loadFromUri('/models'),
@@ -12,11 +12,9 @@ Promise.all([
 ]).then(startVideo);
 
 function startVideo() {
-    navigator.getUserMedia(
-        { video: {} },
-        stream => video.srcObject = stream,
-        err => console.error(err)
-    );
+    navigator.mediaDevices.getUserMedia({ video: {} })
+        .then(stream => { video.srcObject = stream; })
+        .catch(err => { console.error(err); status.innerText = "Error: Camera access denied."; });
     status.innerText = "Models Loaded. Ready.";
 }
 
@@ -29,7 +27,7 @@ async function getDescriptor() {
 
 async function registerFace() {
     const name = document.getElementById('nameInput').value;
-    if (!name) return alert("Enter a name");
+    if (!name) return alert("Enter a name first");
 
     status.innerText = "Processing...";
     const detection = await getDescriptor();
@@ -37,12 +35,16 @@ async function registerFace() {
     if (!detection) return status.innerText = "No face detected!";
 
     // Send to GAS
-    await fetch(GAS_URL, {
-        method: 'POST',
-        body: JSON.stringify({ name: name, descriptor: Array.from(detection.descriptor) })
-    });
-    
-    status.innerText = "Registered: " + name;
+    try {
+        const response = await fetch(GAS_URL, {
+            method: 'POST',
+            body: JSON.stringify({ name: name, descriptor: Array.from(detection.descriptor) }),
+            mode: 'no-cors' // Using no-cors because Apps Script redirect issues
+        });
+        status.innerText = "Registered: " + name;
+    } catch (err) {
+        status.innerText = "Error saving to database.";
+    }
 }
 
 async function identifyFace() {
@@ -52,6 +54,8 @@ async function identifyFace() {
     const response = await fetch(GAS_URL);
     const knownFaces = await response.json();
     
+    if (knownFaces.length === 0) return status.innerText = "Database empty.";
+
     // 2. Format for face-api
     const labeledDescriptors = knownFaces.map(item => {
         return new faceapi.LabeledFaceDescriptors(
@@ -67,5 +71,5 @@ async function identifyFace() {
     if (!detection) return status.innerText = "No face detected!";
 
     const bestMatch = faceMatcher.findBestMatch(detection.descriptor);
-    status.innerText = "Result: " + bestMatch.label + " (" + bestMatch.distance.toFixed(2) + ")";
+    status.innerText = "Result: " + bestMatch.label + " (Distance: " + bestMatch.distance.toFixed(2) + ")";
 }
