@@ -1,5 +1,5 @@
 // REPLACE with your Web App URL after deployment
-const GAS_URL = 'YOUR_APPS_SCRIPT_WEB_APP_URL_HERE'; 
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxc_-rmsBGEEYidMuLFSEiccxkNwSTUWtKv7tsxMoVEDEhoDCFs8VR9WL20oxbm7kYC/exec'; 
 
 const video = document.getElementById('video');
 const status = document.getElementById('status');
